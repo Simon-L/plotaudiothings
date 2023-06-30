@@ -1,0 +1,6 @@
+[submodule "sst-basic-blocks"]
+	path = sst-basic-blocks
+	url = https://github.com/surge-synthesizer/sst-basic-blocks
+[submodule "dr_libs"]
+	path = dr_libs
+	url = https://github.com/mackron/dr_libs
