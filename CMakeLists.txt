@@ -31,6 +31,7 @@ target_compile_features(plotenv_lib PUBLIC cxx_std_17)
 # ---- Declare executable ----
 
 add_subdirectory(sst-basic-blocks)
+# add_subdirectory(sciplot)
 
 add_executable(plotenv_exe source/main.cpp)
 add_executable(plotenv::exe ALIAS plotenv_exe)
@@ -42,13 +43,12 @@ target_compile_features(plotenv_exe PRIVATE cxx_std_17)
 target_link_libraries(plotenv_exe PRIVATE plotenv_lib)
 target_link_libraries(plotenv_exe PRIVATE sst-basic-blocks)
 target_include_directories(plotenv_exe PUBLIC dr_libs)
+target_include_directories(plotenv_exe PUBLIC sciplot)
 target_include_directories(plotenv_exe PUBLIC include)
 
 add_custom_target(run
     DEPENDS plotenv::exe
-    COMMAND plotenv::exe
-    COMMAND ../audiowaveform -i out.wav -o out.png -w 800 -h 700 -e 0.3)
-    # COMMAND xdg-open out.png)
+    COMMAND plotenv::exe)
 
 # ---- Install rules ----
 

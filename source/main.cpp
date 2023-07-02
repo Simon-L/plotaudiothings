@@ -2,13 +2,17 @@
 #include <string>
 #include <cstdio>
 
-#include "lib.hpp"
-#include "sst/basic-blocks/modulators/ADAREnvelope.h"
-
-#define DR_WAV_IMPLEMENTATION
-#include "dr_wav.h"
-
+#include "sst/basic-blocks/modulators/ADSREnvelope.h"
 #include "digital.hpp"
+#include "CParamSmooth.hpp"
+#include <sciplot/sciplot.hpp>
+using namespace sciplot;
+
+std::vector<float> out;
+std::vector<float> out2;
+std::vector<float> out3;
+std::vector<float> time_x;
+
 
 static constexpr int tbs{16};
 struct SampleSRProvider
@@ -17,48 +21,50 @@ struct SampleSRProvider
     float envelope_rate_linear_nowrap(float f) const { return tbs * sampleRateInv * pow(2.f, -f); }
 } srp;
 
-float out[44100*2];
 
 rack::dsp::PulseGenerator trigger;
 
 auto main() -> int
 {
-    auto const lib = library {};
-    auto const message = "Hello from " + lib.name + "!";
-    std::cout << message << '\n';
+    auto adsr = sst::basic_blocks::modulators::ADSREnvelope<SampleSRProvider, tbs>(&srp);
     
-    drwav_data_format format;
-    format.container = drwav_container_riff;     // <-- drwav_container_riff = normal WAV files, drwav_container_w64 = Sony Wave64.
-    format.format = DR_WAVE_FORMAT_IEEE_FLOAT;          // <-- Any of the DR_WAVE_FORMAT_* codes.
-    format.channels = 1;
-    format.sampleRate = 44100;
-    format.bitsPerSample = 32;
-    drwav wav;
-    drwav_init_file_write(&wav, "out.wav", &format, NULL);
+    float _A = 0.001;
+    float _D = 0.75;
+    float _S = 0.0f;
+    float _R = 4 * 0.10;
     
-    auto adar = sst::basic_blocks::modulators::ADAREnvelope<SampleSRProvider, tbs>(&srp);
-    auto A = log2(1.5e-3f);
-    auto H = log2(2.2e-3f);
-    auto R = log2(100e-3f);
+    float deltaTime = 1./44100.;
+    float length = 0.3;
     
+    trigger.trigger(0.650);
+    adsr.attackFrom(0.0, _A, 1, false); // initial, attacktime, ashp, digital?
     
-    float deltaTime = 1.0/44100.0;
+    CParamSmooth pasm(20, 44100);
     
-    for (size_t s = 0; s < 44100*2; s++) {
-        if (s == 200)
-        {
-            trigger.trigger(3.7e-3f);
-            adar.attackFrom(0.0, 1, false, true); // initial, ashp, digital?, gated?
-            // printf("Hey!\n");
-        }
+    for (size_t s = 0; s < 44100; s++) {
         auto b = trigger.process(deltaTime);
             
-        adar.processScaledAD(A, R, 1, 1, b); // a, d, ashp, dshp, gateActive
-        out[s] = adar.output * 2 - 1.0;
+        adsr.process(_A, _D, _S, _R, 1, 1, 1, b); // a, d, s, r, ashp, dshp, rshp, gateActive
+        out.push_back(adsr.output);
+        out3.push_back(pasm.process(adsr.output));
+        out2.push_back(s < (0.16 * 44100) ? 1.0 : 0.0);
+        time_x.push_back(s * deltaTime);
+        // if (s < 100) printf("%f\n", adsr.output);
         // out[s] = b ? 1.0 : -1.0;
     }
-    drwav_uint64 framesWritten = drwav_write_pcm_frames(&wav, 44100*2, out);
-    drwav_uninit(&wav);
+    
+    Plot2D plot;
+    plot.xlabel("s");
+    plot.ylabel("env");
+    plot.xrange(0.0, 44100 * deltaTime);
+    plot.yrange(0.0, 1.0);
+    plot.drawCurve(time_x, out);
+    // plot.drawCurve(time_x, out2);
+    plot.drawCurve(time_x, out3);
+    Figure fig = {{plot}};
+    Canvas canvas = {{fig}};
+    canvas.size(1000,1000);
+    canvas.show();
     
     return 0;
 }
