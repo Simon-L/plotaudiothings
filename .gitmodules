@@ -7,3 +7,9 @@
 [submodule "sciplot"]
 	path = sciplot
 	url = https://github.com/sciplot/sciplot
+[submodule "chowdsp_utils"]
+	path = chowdsp_utils
+	url = https://github.com/Chowdhury-DSP/chowdsp_utils
+[submodule "JUCE"]
+	path = JUCE
+	url = https://github.com/juce-framework/JUCE
