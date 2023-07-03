@@ -1,11 +1,11 @@
 # ---- Developer mode ----
 
 # Developer mode enables targets and code paths in the CMake scripts that are
-# only relevant for the developer(s) of plotenv
+# only relevant for the developer(s) of plotaudiothings
 # Targets necessary to build the project must be provided unconditionally, so
 # consumers can trivially build and package the project
 if(PROJECT_IS_TOP_LEVEL)
-  option(plotenv_DEVELOPER_MODE "Enable developer mode" OFF)
+  option(plotaudiothings_DEVELOPER_MODE "Enable developer mode" OFF)
 endif()
 
 # ---- Warning guard ----
@@ -17,12 +17,12 @@ endif()
 set(warning_guard "")
 if(NOT PROJECT_IS_TOP_LEVEL)
   option(
-      plotenv_INCLUDES_WITH_SYSTEM
-      "Use SYSTEM modifier for plotenv's includes, disabling warnings"
+      plotaudiothings_INCLUDES_WITH_SYSTEM
+      "Use SYSTEM modifier for plotaudiothings's includes, disabling warnings"
       ON
   )
-  mark_as_advanced(plotenv_INCLUDES_WITH_SYSTEM)
-  if(plotenv_INCLUDES_WITH_SYSTEM)
+  mark_as_advanced(plotaudiothings_INCLUDES_WITH_SYSTEM)
+  if(plotaudiothings_INCLUDES_WITH_SYSTEM)
     set(warning_guard SYSTEM)
   endif()
 endif()

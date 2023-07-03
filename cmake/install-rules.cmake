@@ -1,6 +1,6 @@
 install(
-    TARGETS plotenv_exe
-    RUNTIME COMPONENT plotenv_Runtime
+    TARGETS plotaudiothings_exe
+    RUNTIME COMPONENT plotaudiothings_Runtime
 )
 
 if(PROJECT_IS_TOP_LEVEL)

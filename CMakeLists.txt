@@ -3,52 +3,61 @@ cmake_minimum_required(VERSION 3.14)
 include(cmake/prelude.cmake)
 
 project(
-    plotenv
+    plotaudiothings
     VERSION 0.1.0
-    DESCRIPTION "Short description"
-    HOMEPAGE_URL "https://example.com/"
+    DESCRIPTION "Plot envlopes and filter response!"
+    HOMEPAGE_URL ""
     LANGUAGES CXX
 )
 
 include(cmake/project-is-top-level.cmake)
 include(cmake/variables.cmake)
 
-# ---- Declare library ----
-
-add_library(
-    plotenv_lib OBJECT
-    source/lib.cpp
-)
-
-target_include_directories(
-    plotenv_lib ${warning_guard}
-    PUBLIC
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/source>"
-)
-
-target_compile_features(plotenv_lib PUBLIC cxx_std_17)
-
 # ---- Declare executable ----
 
+add_executable(plotaudiothings_exe source/main.cpp)
+add_executable(plotaudiothings::exe ALIAS plotaudiothings_exe)
+
+set_property(TARGET plotaudiothings_exe PROPERTY OUTPUT_NAME plotaudiothings)
+
+target_compile_features(plotaudiothings_exe PRIVATE cxx_std_17)
+
+add_subdirectory(JUCE)
+add_subdirectory(chowdsp_utils)
+
+target_link_libraries(plotaudiothings_exe PUBLIC
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_gui_basics
+    juce::juce_gui_extra
+    chowdsp::chowdsp_dsp_utils
+    chowdsp::chowdsp_sources
+    chowdsp::chowdsp_filters
+    chowdsp::chowdsp_visualizers
+    chowdsp::chowdsp_plugin_utils
+)
+
 add_subdirectory(sst-basic-blocks)
-# add_subdirectory(sciplot)
 
-add_executable(plotenv_exe source/main.cpp)
-add_executable(plotenv::exe ALIAS plotenv_exe)
-
-set_property(TARGET plotenv_exe PROPERTY OUTPUT_NAME plotenv)
-
-target_compile_features(plotenv_exe PRIVATE cxx_std_17)
-
-target_link_libraries(plotenv_exe PRIVATE plotenv_lib)
-target_link_libraries(plotenv_exe PRIVATE sst-basic-blocks)
-target_include_directories(plotenv_exe PUBLIC dr_libs)
-target_include_directories(plotenv_exe PUBLIC sciplot)
-target_include_directories(plotenv_exe PUBLIC include)
+target_link_libraries(plotaudiothings_exe PRIVATE sst-basic-blocks)
+target_link_libraries(plotaudiothings_exe PRIVATE curl)
+target_include_directories(plotaudiothings_exe PUBLIC dr_libs)
+target_include_directories(plotaudiothings_exe PUBLIC /usr/include/gtk-3.0
+    /usr/include/glib-2.0
+    /usr/include/harfbuzz
+    /usr/include/cairo
+    /usr/include/gdk-pixbuf-2.0
+    /usr/include/atk-1.0
+    /usr/include/webkitgtk-4.0
+    /usr/include/libsoup-2.4
+    /usr/lib/x86_64-linux-gnu/glib-2.0/include
+    /usr/include/pango-1.0)
+target_include_directories(plotaudiothings_exe PUBLIC sciplot)
+target_include_directories(plotaudiothings_exe PUBLIC include)
 
 add_custom_target(run
-    DEPENDS plotenv::exe
-    COMMAND plotenv::exe)
+    DEPENDS plotaudiothings::exe
+COMMAND plotaudiothings::exe ../options.json)
 
 # ---- Install rules ----
 
@@ -58,12 +67,12 @@ endif()
 
 # ---- Developer mode ----
 
-if(NOT plotenv_DEVELOPER_MODE)
+if(NOT plotaudiothings_DEVELOPER_MODE)
   return()
 elseif(NOT PROJECT_IS_TOP_LEVEL)
   message(
       AUTHOR_WARNING
-      "Developer mode is intended for developers of plotenv"
+      "Developer mode is intended for developers of plotaudiothings"
   )
 endif()
 

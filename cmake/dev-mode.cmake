@@ -7,10 +7,10 @@ endif()
 
 add_custom_target(
     run-exe
-    COMMAND plotenv_exe
+    COMMAND plotaudiothings_exe
     VERBATIM
 )
-add_dependencies(run-exe plotenv_exe)
+add_dependencies(run-exe plotaudiothings_exe)
 
 option(BUILD_MCSS_DOCS "Build documentation using Doxygen and m.css" OFF)
 if(BUILD_MCSS_DOCS)
