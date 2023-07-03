@@ -54,10 +54,12 @@ auto main(int argc, const char *argv[]) -> int
     const auto [freqAxis, magAxis] = plotter.plotFilterMagnitudeResponse();    
     
     Plot2D plot;
+    plot.xlabel("Frequency (Hz)");
+    plot.ylabel("Magnitude (dB)");
     plot.xrange(10000.0f, 15000.0f);
     plot.yrange(-30.0f, 8.0f);
-    plot.drawCurve(freqAxis, magAxis);
-    plot.drawCurve(freqValues, dbValues);
+    plot.drawCurve(freqAxis, magAxis).label("chowdsp::ButterworthFilter");
+    plot.drawCurve(freqValues, dbValues).label("LTspice sim");
     plot.xtics().logscale();
     Figure fig = {{plot}};
     Canvas canvas = {{fig}};
