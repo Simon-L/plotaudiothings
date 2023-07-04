@@ -13,7 +13,7 @@ using namespace sciplot;
 #include <chowdsp_plugin_utils/chowdsp_plugin_utils.h>
 
 // #include "values_ch.hpp"
-#include "values_oh.hpp"
+#include "values_oh_full.hpp"
 
 auto main(int argc, const char *argv[]) -> int
 {   
@@ -28,12 +28,10 @@ auto main(int argc, const char *argv[]) -> int
     
     printf("Options: %f %f %f\n", freq, q, gain);
     
-    chowdsp::ButterworthFilter< 2, chowdsp::ButterworthFilterType::Highpass, float> fi;
+    chowdsp::ButterworthFilter< 3, chowdsp::ButterworthFilterType::Highpass, float> fi;
     chowdsp::Gain<float> preGain;
     preGain.setGainLinear(gain);
     
-    fi.prepare(1);
-    fi.calcCoefs(freq, q, 48000);
     
     chowdsp::SpectrumPlotBase base {
             chowdsp::SpectrumPlotParams {
@@ -43,11 +41,14 @@ auto main(int argc, const char *argv[]) -> int
                 30.0f }
     };
     chowdsp::GenericFilterPlotter plotter { base, {} };
-    plotter.runFilterCallback = [&fi, &preGain, gain] (const float* in, float* out, int N)
+    plotter.runFilterCallback = [&fi, &preGain, gain, freq, q] (const float* in, float* out, int N)
     {   
         std::copy (in, in + N, out);
-        preGain.prepare({48000, N, 1});
+        preGain.prepare({48000.0, N, 1});
         preGain.process (chowdsp::BufferView { out, N });
+        fi.reset();
+        fi.prepare(1);
+        fi.calcCoefs(freq, q, 48000.0);
         fi.processBlock (chowdsp::BufferView { out, N });
     };
 
