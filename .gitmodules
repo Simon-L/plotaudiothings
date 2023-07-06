@@ -13,3 +13,6 @@
 [submodule "JUCE"]
 	path = JUCE
 	url = https://github.com/juce-framework/JUCE
+[submodule "chowdsp_wdf"]
+	path = chowdsp_wdf
+	url = https://github.com/Chowdhury-DSP/chowdsp_wdf

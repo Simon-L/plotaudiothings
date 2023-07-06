@@ -13,7 +13,8 @@ using namespace sciplot;
 #include <chowdsp_plugin_utils/chowdsp_plugin_utils.h>
 
 // #include "values_ch.hpp"
-#include "values_oh_full.hpp"
+#include "values_reso.hpp"
+#include "Resonator.hpp"
 
 auto main(int argc, const char *argv[]) -> int
 {   
@@ -25,10 +26,20 @@ auto main(int argc, const char *argv[]) -> int
     auto freq = options.getProperty<float> ("freq");
     auto q = options.getProperty<float> ("q");
     auto gain = options.getProperty<float> ("gain");
+    auto xmin = options.getProperty<float> ("xmin");
+    auto xmax = options.getProperty<float> ("xmax");
+    auto ymin = options.getProperty<float> ("ymin");
+    auto ymax = options.getProperty<float> ("ymax");
+    auto Rfb = options.getProperty<float> ("Rfb");
+    auto R_g = options.getProperty<float> ("R_g");
+    auto C = options.getProperty<float> ("C");
     
     printf("Options: %f %f %f\n", freq, q, gain);
     
     chowdsp::ButterworthFilter< 3, chowdsp::ButterworthFilterType::Highpass, float> fi;
+    HatResonatorWDF reso;
+    reso.prepare(48000);
+    // reso.setParameters(Rfb, R_g, C);
     chowdsp::Gain<float> preGain;
     preGain.setGainLinear(gain);
     
@@ -41,15 +52,21 @@ auto main(int argc, const char *argv[]) -> int
                 30.0f }
     };
     chowdsp::GenericFilterPlotter plotter { base, {} };
-    plotter.runFilterCallback = [&fi, &preGain, gain, freq, q] (const float* in, float* out, int N)
+    plotter.runFilterCallback = [&fi, &preGain, gain, freq, q, &reso] (const float* in, float* out, int N)
     {   
         std::copy (in, in + N, out);
         preGain.prepare({48000.0, N, 1});
         preGain.process (chowdsp::BufferView { out, N });
-        fi.reset();
-        fi.prepare(1);
-        fi.calcCoefs(freq, q, 48000.0);
-        fi.processBlock (chowdsp::BufferView { out, N });
+        // fi.reset();
+        reso.reset();
+        reso.prepare(48000);
+        // reso.setParameters(8000.0, 0.06);
+        // fi.prepare(1);
+        // fi.calcCoefs(freq, q, 48000.0);
+        // fi.processBlock (chowdsp::BufferView { out, N });
+        for (size_t i = 0; i < N; i++) {
+            out[i] = reso.processSample(out[i]);
+        }
     };
 
     const auto [freqAxis, magAxis] = plotter.plotFilterMagnitudeResponse();    
@@ -57,14 +74,14 @@ auto main(int argc, const char *argv[]) -> int
     Plot2D plot;
     plot.xlabel("Frequency (Hz)");
     plot.ylabel("Magnitude (dB)");
-    plot.xrange(10000.0f, 15000.0f);
-    plot.yrange(-30.0f, 8.0f);
     plot.drawCurve(freqAxis, magAxis).label("chowdsp::ButterworthFilter");
     plot.drawCurve(freqValues, dbValues).label("LTspice sim");
     plot.xtics().logscale();
+    plot.xrange(xmin, xmax);
+    plot.yrange(ymin, ymax);
     Figure fig = {{plot}};
     Canvas canvas = {{fig}};
-    canvas.size(1000,1000);
+    canvas.size(1300,1300);
     canvas.show();
     
     return 0;
