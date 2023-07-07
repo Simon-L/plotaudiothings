@@ -1,12 +1,15 @@
 {
-	"freq": 7500.0,
-	"q": 0.06,
-	"gain": 0.325,
-	"xmin": 4100,
-	"xmax": 10000,
-	"ymin": 5,
-	"ymax": 35,
+	"freq": 8000.0,
+	"freq2": 11000.0,
+	"freq3": 11000.0,
+	"q": 1.55,
+	"gain": 1.3,
+	"xmin": 100,
+	"xmax": 24000,
+	"ymin": -30,
+	"ymax": 10,
 	"Rfb": 82e3,
-	"R_g": 508,
-	"C": 3.3e-9
+	"R_g": 425,
+	"C": 3.79e-9,
+	"file": "/home/xox/Documents/LTspiceXVII/acanalysis_hatoutput_ohoutput.txt"
 }

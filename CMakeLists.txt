@@ -41,6 +41,7 @@ add_subdirectory(sst-basic-blocks)
 
 target_link_libraries(plotaudiothings_exe PRIVATE sst-basic-blocks)
 target_link_libraries(plotaudiothings_exe PRIVATE curl)
+target_include_directories(plotaudiothings_exe PUBLIC chowdsp_wdf/include)
 target_include_directories(plotaudiothings_exe PUBLIC dr_libs)
 target_include_directories(plotaudiothings_exe PUBLIC /usr/include/gtk-3.0
     /usr/include/glib-2.0
