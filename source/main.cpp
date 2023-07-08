@@ -46,12 +46,11 @@ void parseSimulationFile(juce::String simFilename, std::vector<float> *destXVec,
     }
 }
 
-auto main(int argc, const char *argv[]) -> int
-{   
-    const juce::File optionsFileJ = juce::File(argv[1]);
-    chowdsp::GenericTweaksFile<false> options;
-    options.initialise (optionsFileJ, 1);
-    
+chowdsp::GenericTweaksFile<false> options;
+
+// plot response
+void plotResponse()
+{
     auto freq = options.getProperty<float> ("freq");
     auto freq2 = options.getProperty<float> ("freq2");
     auto freq3 = options.getProperty<float> ("freq3");
@@ -65,27 +64,25 @@ auto main(int argc, const char *argv[]) -> int
     auto R_g = options.getProperty<float> ("R_g");
     auto C = options.getProperty<float> ("C");
     auto simFilename = options.getProperty<juce::String> ("file");
-    
-    printf("Options: %f %f %f\n", freq, q, gain);
-    
+
     std::vector<float> freqValues;
     std::vector<float> dbValues;
     parseSimulationFile(simFilename, &freqValues, &dbValues);
-    
+
     HatResonatorWDF reso;
     reso.prepare(96000);
     reso.setParameters(Rfb, R_g, C);
     chowdsp::Gain<float> preGain;
     preGain.setGainLinear(gain);
-    
+
     chowdsp::FirstOrderHPF<float> fi;
     chowdsp::FirstOrderLPF<float> fi2;
-    
+
     fi.reset();
     fi.calcCoefs(freq3 - 1500, 96000.0);
     fi2.reset();
     fi2.calcCoefs(freq3 + 1500, 96000.0);
-    
+
     chowdsp::SpectrumPlotBase base {
             chowdsp::SpectrumPlotParams {
                 500.0f,
@@ -112,20 +109,147 @@ auto main(int argc, const char *argv[]) -> int
     };
 
     auto [freqAxis, magAxis] = plotter.plotFilterMagnitudeResponse();
+
     Plot2D plot;
     plot.xlabel("Frequency (Hz)");
     plot.ylabel("Magnitude (dB)");
     plot.drawCurve(freqAxis, magAxis).label("");
     plot.drawCurve(freqValues, dbValues).label("LTSpice");
-    // plot.drawCurve(freqValues, dbValues).label("B");
     plot.xtics().logscale();
     plot.xrange(xmin, xmax);
     plot.yrange(ymin, ymax);
     Figure fig = {{plot}};
     Canvas canvas = {{fig}};
     canvas.size(1300,1300);
-    // canvas.show();
-    canvas.save("/tmp/plot.png");
+    canvas.show();
+    // canvas.save("/tmp/plot.png")
+}
+
+struct EnvTime
+{
+    static constexpr float defaultEtMin{-8}, defaultEtMax{3.32192809489}; // log2(10)
+    float etMin{defaultEtMin}, etMax{defaultEtMax};
+    
+    float value{etMin};
+
+    float getValue() { return value; }
+    float setValue(float nvalue) { value = nvalue; }
+    
+    std::string getDisplayValueString()
+    {
+        auto v = getValue() * (etMax - etMin) + etMin;
+
+        if (getValue() < 0.0001)
+        {
+            std::string mv;
+            if (getMinString(mv))
+            {
+                return mv;
+            }
+        }
+        char valstring[32];
+        sprintf(valstring, "%.4f s", pow(2, v));
+        return std::string(valstring);
+    }
+    
+    void printDisplayValueString(float value)
+    {
+        auto v = value * (etMax - etMin) + etMin;
+        char valstring[32];
+        sprintf(valstring, "%.4f s", pow(2, v));
+        printf("Value %f -> Time %s\n", value, valstring);
+
+    }
+    void setDisplayValueString(std::string s)
+    {
+        auto q = std::atof(s.c_str());
+        auto v = log2(std::clamp(q, pow(2., etMin), pow(2., etMax)));
+        auto vn = (v - etMin) / (etMax - etMin);
+        setValue(vn);
+    }
+    
+    float getValueTime(float q)
+    {
+        auto v = log2(std::clamp(double(q), pow(2., etMin), pow(2., etMax)));
+        auto vn = (v - etMin) / (etMax - etMin);
+        return vn;
+    }
+
+    virtual bool getMinString(std::string &s) { return false; }
+};
+
+static constexpr int tbs{16};
+struct SRProvider
+{
+    double samplerate{96000}, sampleRateInv{1.f / samplerate};
+    float envelope_rate_linear_nowrap(float f) const { return tbs * sampleRateInv * pow(2.f, -f); }
+} srp;
+
+void plotEnvelope()
+{   
+    auto xmin = options.getProperty<float> ("xmin");
+    auto xmax = options.getProperty<float> ("xmax");
+    auto ymin = options.getProperty<float> ("ymin");
+    auto ymax = options.getProperty<float> ("ymax");
+    
+    rack::dsp::PulseGenerator trigger;
+    
+    EnvTime et1;
+    
+    et1.setDisplayValueString(std::string("0.1 s"));
+    printf("%s\n", et1.getDisplayValueString().c_str());
+    
+    auto adsr = sst::basic_blocks::modulators::ADSREnvelope<SRProvider, tbs>(&srp);
+    
+    float deltaTime = 1./96000.;
+    float length = 1.0;
+    
+    std::vector<float> adsr_vec;
+    std::vector<float> time_vec;
+    // std::vector<float> out2;
+    // std::vector<float> out3;
+    // std::vector<float> time_x;
+    
+    float EnvA = et1.getValueTime(0.2);
+    float EnvD = et1.getValueTime(0.2);
+    float EnvS = 0.5;
+    float EnvR = et1.getValueTime(0.2);
+    
+    trigger.trigger(0.5);
+    adsr.attackFrom(0.0, EnvA, 1, false); // initial, attacktime, ashp, digital?
+    
+    float time = 0.0f;
+    while (time < length) {
+        auto b = trigger.process(deltaTime);
+        adsr.process(EnvA, EnvD, EnvS, EnvR, 1, 1, 1, b); // a, d, s, r, ashp, dshp, rshp, gateActive
+        adsr_vec.push_back(adsr.output);
+        time_vec.push_back(time);
+        
+        time += deltaTime;
+    }
+    
+    
+    Plot2D plot;
+    plot.xlabel("Time (s)");
+    plot.ylabel("Value");
+    plot.drawCurve(time_vec, adsr_vec).label("ADSR");
+    plot.xrange(xmin, xmax);
+    plot.yrange(ymin, ymax);
+    Figure fig = {{plot}};
+    Canvas canvas = {{fig}};
+    canvas.size(1300,1300);
+    canvas.show();
+    // canvas.save("/tmp/plot.png");
+}
+
+
+auto main(int argc, const char *argv[]) -> int
+{   
+    const juce::File optionsFileJ = juce::File(argv[1]);
+    options.initialise (optionsFileJ, 1);
+    
+    // plotResponse();
+    plotEnvelope();
     
     return 0;
 }
