@@ -19,6 +19,9 @@ using namespace sciplot;
 // values oh output gain 1.3 FirstOrderHPF 9500 -> FirstOrderLPF 12500 ( -1500 <- 11000 -> +1500)
 // reso Resonator rfb 82e3 r_g 425 c 3.79e-9 gain 0.325
 
+
+// closed etMin{-13.287}, etMax{2.0}; 	"tEnvA": 0.5e-3, D = 0, S = 0, "tEnvR": 60e-3, trigger = 1e-3
+
 // #include "bar.hpp"
 // #include "values_reso.hpp"
 #include "Resonator.hpp"
