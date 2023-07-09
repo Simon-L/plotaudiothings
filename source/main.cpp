@@ -20,7 +20,8 @@ using namespace sciplot;
 // reso Resonator rfb 82e3 r_g 425 c 3.79e-9 gain 0.325
 
 
-// closed etMin{-13.287}, etMax{2.0}; 	"tEnvA": 0.5e-3, D = 0, S = 0, "tEnvR": 60e-3, trigger = 1e-3
+// closed etMin{-13.287}, etMax{2.0}; 	"tEnvA": 0.5e-3, D = 0, S = 1.0, "tEnvR": 60e-3, trigger = 1e-3
+// open etMin{-13.287}, etMax{2.0}; 	"tEnvA": 0.5e-3, D = 1.25s, S = 0, "tEnvR": 100e-3, trigger = short 40e-3 long 700e-3
 
 // #include "bar.hpp"
 // #include "values_reso.hpp"
@@ -228,7 +229,10 @@ void plotEnvelope()
     auto ymin = options.getProperty<float> ("ymin");
     auto ymax = options.getProperty<float> ("ymax");
     auto simFilename = options.getProperty<juce::String> ("file");
+    auto length = options.getProperty<float> ("length");
     auto tEnvA = options.getProperty<float> ("tEnvA");
+    auto tEnvD = options.getProperty<float> ("tEnvD");
+    auto tEnvS = options.getProperty<float> ("tEnvS");
     auto tEnvR = options.getProperty<float> ("tEnvR");
     auto mult = options.getProperty<float> ("mult");
     auto trigDuration = options.getProperty<float> ("trigDuration");
@@ -246,7 +250,6 @@ void plotEnvelope()
     auto adsr = sst::basic_blocks::modulators::ADSREnvelope<SRProvider, tbs, ShortRange>(&srp);
     
     float deltaTime = 1./96000.;
-    float length = 0.2;
     
     std::vector<float> adsr_vec;
     std::vector<float> time_vec;
@@ -255,8 +258,8 @@ void plotEnvelope()
     // std::vector<float> time_x;
     
     float EnvA = et1.getValueTime(tEnvA);
-    float EnvD = et1.getValueTime(0.2);
-    float EnvS = 1.0;
+    float EnvD = et1.getValueTime(tEnvD);
+    float EnvS = tEnvS;
     float EnvR = et1.getValueTime(tEnvR);
     
     
@@ -264,6 +267,8 @@ void plotEnvelope()
     while (time < length) {
         if (time == int(0.001 / deltaTime) * deltaTime)
         {
+            // 700e-3 longest
+            // 40e-3 shortest
             trigger.trigger(trigDuration);
             adsr.attackFrom(0.0, EnvA, 1, false); // initial, attacktime, ashp, digital?
         }
