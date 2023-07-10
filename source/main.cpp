@@ -14,11 +14,10 @@ using namespace sciplot;
 #include <chowdsp_plugin_utils/chowdsp_plugin_utils.h>
 
 // values oh ButterworthFilter 2 freq 7750 q 1.95
-// values ch ButterworthFilter 2 freq 11450 q 1.55
+// values ch ButterworthFilter hpf 2 freq 11550 q 1.95 gain 1.12 clh_butterworth.txt
 // values ch output gain 2 FirstOrderHPF 8000 -> FirstOrderLPF 11000 ( -1500 <- 9500 -> +1500)
 // values oh output gain 1.3 FirstOrderHPF 9500 -> FirstOrderLPF 12500 ( -1500 <- 11000 -> +1500)
 // reso Resonator rfb 82e3 r_g 425 c 3.79e-9 gain 0.325
-
 
 // closed etMin{-13.287}, etMax{2.0}; 	"tEnvA": 0.5e-3, D = 0, S = 1.0, "tEnvR": 60e-3, trigger = 1e-3
 // open etMin{-13.287}, etMax{2.0}; 	"tEnvA": 0.5e-3, D = 1.25s, S = 0, "tEnvR": 100e-3, trigger = short 40e-3 long 700e-3
@@ -81,6 +80,7 @@ void plotResponse()
     auto freq = options.getProperty<float> ("freq");
     auto freq2 = options.getProperty<float> ("freq2");
     auto freq3 = options.getProperty<float> ("freq3");
+    auto freqband = options.getProperty<float> ("freqband");
     auto q = options.getProperty<float> ("q");
     auto gain = options.getProperty<float> ("gain");
     auto xmin = options.getProperty<float> ("xmin");
@@ -104,35 +104,36 @@ void plotResponse()
 
     chowdsp::FirstOrderHPF<float> fi;
     chowdsp::FirstOrderLPF<float> fi2;
-
-    fi.reset();
-    fi.calcCoefs(freq3 - 1500, 96000.0);
-    fi2.reset();
-    fi2.calcCoefs(freq3 + 1500, 96000.0);
+    
+    chowdsp::ButterworthFilter<2, chowdsp::ButterworthFilterType::Highpass, float> ch_hpf;
 
     chowdsp::SpectrumPlotBase base {
-            chowdsp::SpectrumPlotParams {
-                500.0f,
-                20000.0f,
-                -20.0f,
-                30.0f }
+            chowdsp::SpectrumPlotParams {}
     };
     chowdsp::GenericFilterPlotter plotter { base, {96000.0f, 1.0f / 12.0f, 13} };
-    plotter.runFilterCallback = [&fi, &fi2, &preGain, gain, freq, freq2, q, &reso] (const float* in, float* out, int N)
+    plotter.runFilterCallback = [&fi, &fi2, &ch_hpf, &preGain, gain, freq, freq2, freq3, freqband, q, &reso] (const float* in, float* out, int N)
     {   
         std::copy (in, in + N, out);
         preGain.prepare({96000.0, juce::uint32(N), 1});
         preGain.process (chowdsp::BufferView { out, N });
+        ch_hpf.reset();
+        ch_hpf.prepare(1);
+        ch_hpf.calcCoefs(freq, q, 96000.0);
+        ch_hpf.processBlock (chowdsp::BufferView { out, N });
         // reso.reset();
         // reso.prepare(96000);
         // reso.setParameters(8000.0, 0.06);
         // for (size_t i = 0; i < N; i++) {
         //     out[i] = reso.processSample(out[i]);
         // }
-        fi.prepare({96000.0, juce::uint32(N), 1});
-        fi.processBlock (chowdsp::BufferView { out, N });
-        fi2.prepare({96000.0, juce::uint32(N), 1});
-        fi2.processBlock (chowdsp::BufferView { out, N });
+        // fi.reset();
+        // fi.prepare({96000.0, juce::uint32(N), 1});
+        // fi.calcCoefs(freq3 - freqband, 96000.0);
+        // fi2.reset();
+        // fi2.prepare({96000.0, juce::uint32(N), 1});
+        // fi2.calcCoefs(freq3 + freqband, 96000.0);
+        // fi.processBlock (chowdsp::BufferView { out, N });
+        // fi2.processBlock (chowdsp::BufferView { out, N });
     };
 
     auto [freqAxis, magAxis] = plotter.plotFilterMagnitudeResponse();
@@ -140,7 +141,7 @@ void plotResponse()
     Plot2D plot;
     plot.xlabel("Frequency (Hz)");
     plot.ylabel("Magnitude (dB)");
-    plot.drawCurve(freqAxis, magAxis).label("");
+    plot.drawCurve(freqAxis, magAxis).label("chowdsp::FirstOrderHPF");
     plot.drawCurve(freqValues, dbValues).label("LTSpice");
     plot.xtics().logscale();
     plot.xrange(xmin, xmax);
@@ -150,6 +151,95 @@ void plotResponse()
     canvas.size(1300,1300);
     canvas.show();
     // canvas.save("/tmp/plot.png")
+}
+
+void plotJatins()
+{
+    chowdsp::FirstOrderLPF<float> fi2;
+    fi2.reset();
+    fi2.calcCoefs(1000.0, 96000.0);
+
+    chowdsp::SpectrumPlotBase base { chowdsp::SpectrumPlotParams {} };
+    chowdsp::GenericFilterPlotter plotter { base, {96000.0f, 1.0f / 12.0f, 13} };
+    plotter.runFilterCallback = [&fi2] (const float* in, float* out, int N)
+    {
+        std::copy (in, in + N, out);
+        fi2.prepare({96000.0, juce::uint32(N), 1});
+        fi2.processBlock (chowdsp::BufferView { out, N });
+    };
+
+    auto [freqAxis, magAxis] = plotter.plotFilterMagnitudeResponse();
+
+    std::cout << *std::min_element (freqAxis.begin(), freqAxis.end()) << std::endl;
+    std::cout << *std::max_element (freqAxis.begin(), freqAxis.end()) << std::endl;
+    for (int i = 0; i < freqAxis.size(); i += 10)
+        std::cout << '[' << freqAxis[i] << ", " << magAxis[i] << ']' << std::endl;
+        
+    Plot2D plot;
+    plot.drawCurve(freqAxis, magAxis);
+    // plot.xrange(xmin, xmax);
+    // plot.yrange(ymin, ymax);
+    plot.xtics().logscale();
+    Figure fig = {{plot}};
+    Canvas canvas = {{fig}};
+    canvas.size(1300,1300);
+    canvas.show();
+}
+
+void plotMine()
+{
+    chowdsp::Gain<float> preGain;
+    preGain.setGainLinear(1.0);
+
+    chowdsp::FirstOrderHPF<float> fi;
+    chowdsp::FirstOrderLPF<float> fi2;
+    fi2.reset();
+    fi2.calcCoefs(1000, 96000.0);
+
+    chowdsp::SpectrumPlotBase base {
+    		chowdsp::SpectrumPlotParams {500.0f,
+			20000.0f,
+			-20.0f,
+			30.0f }
+    };
+    chowdsp::GenericFilterPlotter plotter { base, {96000.0f, 1.0f / 12.0f, 13} };
+    plotter.runFilterCallback = [&fi2, &preGain] (const float* in, float* out, int N)
+    {   
+    	std::copy (in, in + N, out);
+    	// preGain.prepare({96000.0, juce::uint32(N), 1});
+    	// preGain.process (chowdsp::BufferView { out, N });
+    	fi2.prepare({96000.0, juce::uint32(N), 1});
+    	fi2.processBlock (chowdsp::BufferView { out, N });
+    };
+
+    auto [freqAxis, magAxis] = plotter.plotFilterMagnitudeResponse();
+    
+    fi2.reset();
+    chowdsp::SpectrumPlotBase base2 {
+    		chowdsp::SpectrumPlotParams {}
+    };
+    chowdsp::GenericFilterPlotter plotter2 { base2, {96000.0f, 1.0f / 12.0f, 13} };
+    plotter2.runFilterCallback = [&fi2, &preGain] (const float* in, float* out, int N)
+    {   
+    	std::copy (in, in + N, out);
+    	// preGain.prepare({96000.0, juce::uint32(N), 1});
+    	// preGain.process (chowdsp::BufferView { out, N });
+    	fi2.prepare({96000.0, juce::uint32(N), 1});
+    	fi2.processBlock (chowdsp::BufferView { out, N });
+    };
+
+    auto [freqAxis2, magAxis2] = plotter2.plotFilterMagnitudeResponse();
+
+    Plot2D plot;
+    plot.xlabel("Frequency (Hz)");
+    plot.ylabel("Magnitude (dB)");
+    plot.drawCurve(freqAxis, magAxis).label("chowdsp::FirstOrderHPF");
+    plot.drawCurve(freqAxis2, magAxis2).label("chowdsp::FirstOrderHPF");
+    plot.xtics().logscale();
+    Figure fig = {{plot}};
+    Canvas canvas = {{fig}};
+    canvas.size(1300,1300);
+    canvas.show();
 }
 
 struct EnvTime
@@ -304,8 +394,10 @@ auto main(int argc, const char *argv[]) -> int
     const juce::File optionsFileJ = juce::File(argv[1]);
     options.initialise (optionsFileJ, 1);
     
-    // plotResponse();
-    plotEnvelope();
+    plotResponse();
+    // plotEnvelope();
+    // plotJatins();
+    // plotMine();
     
     return 0;
 }
